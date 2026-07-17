@@ -1,64 +1,99 @@
-import Image from "next/image";
+"use client";
+
+import { useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
+
+const USERNAME_PATTERN = /^[a-zA-Z0-9_-]{3,50}$/;
 
 export default function Home() {
+  const router = useRouter();
+  const [username, setUsername] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const clientError = (value: string): string | null => {
+    const trimmed = value.trim();
+    if (trimmed.length === 0) return null;
+    if (!USERNAME_PATTERN.test(trimmed)) {
+      return "3-50 caracteres: letras, números, _ o -";
+    }
+    return null;
+  };
+
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    const trimmed = username.trim();
+    const validationError = clientError(trimmed) ?? (trimmed.length === 0 ? "ingresá un nombre de usuario" : null);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/players", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: trimmed }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.error ?? "no se pudo iniciar sesión");
+        return;
+      }
+
+      sessionStorage.setItem(
+        "digger.player",
+        JSON.stringify({ id: data.id, username: data.username })
+      );
+      router.push("/play");
+    } catch {
+      setError("no se pudo conectar con el servidor");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <div className="flex flex-1 items-center justify-center bg-zinc-950 font-mono text-zinc-100">
+      <main className="flex w-full max-w-sm flex-col gap-6 px-6">
+        <div className="text-center">
+          <h1 className="text-4xl font-bold tracking-tight text-amber-400">
+            DIGGER
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="mt-2 text-sm text-zinc-400">
+            ingresá tu nombre de usuario para jugar
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          <input
+            type="text"
+            value={username}
+            onChange={(event) => {
+              setUsername(event.target.value);
+              setError(null);
+            }}
+            placeholder="nombre_usuario"
+            maxLength={50}
+            autoFocus
+            disabled={loading}
+            className="rounded border border-zinc-700 bg-zinc-900 px-4 py-3 text-center text-lg text-zinc-100 outline-none focus:border-amber-400 disabled:opacity-50"
+          />
+          {error && (
+            <p className="text-center text-sm text-red-400">{error}</p>
+          )}
+          <button
+            type="submit"
+            disabled={loading}
+            className="rounded bg-amber-500 px-4 py-3 font-semibold text-zinc-950 transition-colors hover:bg-amber-400 disabled:opacity-50"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+            {loading ? "entrando..." : "jugar"}
+          </button>
+        </form>
       </main>
     </div>
   );
