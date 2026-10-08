@@ -54,7 +54,7 @@ The game canvas currently renders at a fixed 1024×896 CSS size, so it does not 
 - Final independent commands passed: `npm run lint`, `npm run build`, and `git diff --check`; parent reran `git diff --check` with no output.
 - Native ASSESS failed closed because untracked files require an explicit declaration. RDD is off; the returned high-risk plan was followed with independent verification. No native review lifecycle was started.
 - Verification limitation: no browser/device touch test was available, so physical tap responsiveness and exact visual alignment remain unverified; the structural mapping is corrected and verified against both skin images/metadata.
-- Commit identity: pending; no commit was made because the user did not explicitly request one.
+- Feature work-unit commit: `4baa8ca` (`feat(mobile): add full-screen Game Boy skin and touch controls`). The user subsequently authorized publishing the feature on `game-offline` and `master`; the final published tip will include any necessary task-evidence update.
 
 ## Next step
 
