@@ -16,7 +16,7 @@ The game canvas currently renders at a fixed 1024×896 CSS size, so it does not 
 - Keep controls accessible and avoid horizontal overflow on narrow mobile viewports.
 - The selected portrait/landscape source PNGs total approximately 6.97 MB; load only the active orientation asset and preserve creator attribution.
 - No visual testing/browser automation framework or test script was reported during exploration. Use the available lint/build checks and inspect the responsive implementation structurally.
-- Forecast: approximately 250 authored changed lines; delivery strategy: ask-on-risk (default). No PR or delivery action is authorized.
+- Forecast: approximately 250 authored changed lines; delivery strategy: ask-on-risk (default). No PR is authorized. The user explicitly authorized publishing the current snapshot on `game-offline` and `master`.
 
 ## Tasks
 
@@ -54,8 +54,8 @@ The game canvas currently renders at a fixed 1024×896 CSS size, so it does not 
 - Final independent commands passed: `npm run lint`, `npm run build`, and `git diff --check`; parent reran `git diff --check` with no output.
 - Native ASSESS failed closed because untracked files require an explicit declaration. RDD is off; the returned high-risk plan was followed with independent verification. No native review lifecycle was started.
 - Verification limitation: no browser/device touch test was available, so physical tap responsiveness and exact visual alignment remain unverified; the structural mapping is corrected and verified against both skin images/metadata.
-- Feature work-unit commit: `4baa8ca` (`feat(mobile): add full-screen Game Boy skin and touch controls`). The user subsequently authorized publishing the feature on `game-offline` and `master`; the final published tip will include any necessary task-evidence update.
+- Feature work-unit commit: `4baa8ca` (`feat(mobile): add full-screen Game Boy skin and touch controls`); task evidence was recorded in `b0e904d`. The user authorized publishing both `master` and `game-offline`; both remote refs were verified at `b0e904d` before this final task-document update.
 
 ## Next step
 
-Test the movement buttons on the phone. If they still misfire, share which direction and a screenshot/video of the touch location so the hit areas can be calibrated further; changes remain uncommitted.
+Test the movement buttons on the phone. If they still misfire, share which direction and a screenshot/video of the touch location so the hit areas can be calibrated further. The feature is committed and published on both branches; `bun.lock` remains untracked and untouched.
