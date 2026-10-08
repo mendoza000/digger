@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { CANVAS_WIDTH, CANVAS_HEIGHT, SCALE } from "@/game/constants";
+import { CANVAS_WIDTH, CANVAS_HEIGHT } from "@/game/constants";
 import { createGameEngine, type GameEngine, type GameOverResult, type HudState } from "@/game/engine";
 import type { Difficulty } from "@/game/difficultyStrategy";
 import type { Direction } from "@/game/player";
@@ -237,16 +237,68 @@ export default function GameCanvas({
     return () => stopMusic();
   }, [paused]);
 
-  return (
-    <canvas
-      ref={canvasRef}
-      width={CANVAS_WIDTH}
-      height={CANVAS_HEIGHT}
-      style={{
-        width: CANVAS_WIDTH * SCALE,
-        height: CANVAS_HEIGHT * SCALE,
-        imageRendering: "pixelated",
+  const setTouchDirection = (direction: Direction, pressed: boolean) => {
+    if (pressed) heldKeysRef.current.add(direction);
+    else heldKeysRef.current.delete(direction);
+  };
+
+  const touchButton = (label: string, direction: Direction) => (
+    <button
+      key={direction}
+      type="button"
+      aria-label={label}
+      className="game-touch-button"
+      onPointerDown={(event) => {
+        event.preventDefault();
+        event.currentTarget.setPointerCapture(event.pointerId);
+        setTouchDirection(direction, true);
       }}
-    />
+      onPointerUp={() => setTouchDirection(direction, false)}
+      onPointerCancel={() => setTouchDirection(direction, false)}
+      onLostPointerCapture={() => setTouchDirection(direction, false)}
+    >
+      {label}
+    </button>
+  );
+
+  return (
+    <div className="game-console">
+      <canvas
+        ref={canvasRef}
+        width={CANVAS_WIDTH}
+        height={CANVAS_HEIGHT}
+        className="game-screen"
+      />
+      <div className="game-controls" aria-label="Touch game controls">
+        <div className="game-dpad">
+          {touchButton("Up", "up")}
+          {touchButton("Left", "left")}
+          {touchButton("Down", "down")}
+          {touchButton("Right", "right")}
+        </div>
+        <button
+          type="button"
+          aria-label="Shoot with A"
+          className="game-touch-button game-shoot game-button-a"
+          onPointerDown={(event) => {
+            event.preventDefault();
+            shootRequestedRef.current = true;
+          }}
+        >
+          A
+        </button>
+        <button
+          type="button"
+          aria-label="Shoot with B"
+          className="game-touch-button game-shoot game-button-b"
+          onPointerDown={(event) => {
+            event.preventDefault();
+            shootRequestedRef.current = true;
+          }}
+        >
+          B
+        </button>
+      </div>
+    </div>
   );
 }

@@ -189,7 +189,7 @@ export default function PlayPage() {
   if (!player) return null;
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-4 bg-zinc-950 py-8 font-mono text-zinc-100">
+    <div className={`play-page flex flex-1 flex-col items-center justify-center gap-4 bg-zinc-950 py-8 font-mono text-zinc-100 ${screen === "playing" ? "is-playing" : ""}`}>
       <p className="text-sm text-zinc-400">
         jugando como <span className="text-amber-400">{player.username}</span>
       </p>
@@ -238,8 +238,8 @@ export default function PlayPage() {
 
       {screen === "playing" && (
         <>
-          <HUD score={hud.score} lives={hud.lives} level={hud.level} />
-          <div className="relative">
+          <div className="relative w-full game-stage">
+            <HUD score={hud.score} lives={hud.lives} level={hud.level} />
             {toast && (
               <p
                 className={`absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded px-3 py-1 text-sm ${
