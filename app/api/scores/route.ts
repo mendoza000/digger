@@ -12,7 +12,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "limit inválido" }, { status: 400 });
   }
 
-  const scores = getScoreRepository().topScores(limit);
+  let scores;
+  try {
+    scores = await getScoreRepository().topScores(limit);
+  } catch {
+    return NextResponse.json({ error: "error interno" }, { status: 500 });
+  }
   return NextResponse.json({ scores });
 }
 
@@ -68,7 +73,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const partida = getScoreRepository().create({
+    const partida = await getScoreRepository().create({
       jugadorId,
       puntuacion,
       nivelAlcanzado,

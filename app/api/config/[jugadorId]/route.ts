@@ -19,14 +19,19 @@ export async function GET(
     return NextResponse.json({ error: "jugadorId inválido" }, { status: 400 });
   }
 
-  const config = getConfigRepository().getByPlayerId(jugadorId);
+  let config;
+  try {
+    config = await getConfigRepository().getByPlayerId(jugadorId);
+  } catch {
+    return NextResponse.json({ error: "error interno" }, { status: 500 });
+  }
   if (!config) {
     return NextResponse.json(DEFAULT_CONFIG);
   }
 
   return NextResponse.json({
     dificultad_preferida: config.dificultad_preferida,
-    sonido_activo: Boolean(config.sonido_activo),
+    sonido_activo: config.sonido_activo,
   });
 }
 
@@ -68,7 +73,7 @@ export async function POST(
   }
 
   try {
-    const config = getConfigRepository().upsert(jugadorId, {
+    const config = await getConfigRepository().upsert(jugadorId, {
       dificultadPreferida,
       sonidoActivo,
     });

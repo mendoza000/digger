@@ -1,4 +1,3 @@
-import type Database from "better-sqlite3";
 import { getDb } from "@/lib/db";
 
 export interface Partida {
@@ -9,7 +8,7 @@ export interface Partida {
   duracion_segundos: number | null;
   dificultad: string;
   fecha_partida: string;
-  finalizada: number;
+  finalizada: boolean;
 }
 
 export interface ScoreboardEntry {
@@ -31,48 +30,27 @@ export interface CreateScoreInput {
 }
 
 export interface ScoreRepository {
-  create(input: CreateScoreInput): Partida;
-  topScores(limit: number): ScoreboardEntry[];
-}
-
-// Repository: abstrae el acceso a `partidas` (mismo patrón que
-// playersRepository con `jugadores`) para poder testear con un mock en
-// vez de tocar SQLite real.
-function createScoreRepository(db: Database.Database): ScoreRepository {
-  const create = (input: CreateScoreInput): Partida => {
-    const { lastInsertRowid } = db
-      .prepare(
-        `INSERT INTO partidas (jugador_id, puntuacion, nivel_alcanzado, duracion_segundos, dificultad, finalizada)
-         VALUES (?, ?, ?, ?, ?, ?)`
-      )
-      .run(
-        input.jugadorId,
-        input.puntuacion,
-        input.nivelAlcanzado,
-        input.duracionSegundos,
-        input.dificultad,
-        input.finalizada ? 1 : 0
-      );
-    return db
-      .prepare<[number | bigint], Partida>("SELECT * FROM partidas WHERE id = ?")
-      .get(lastInsertRowid)!;
-  };
-
-  const topScores = (limit: number): ScoreboardEntry[] => {
-    return db
-      .prepare<[number], ScoreboardEntry>(
-        `SELECT p.id, j.nombre_usuario, p.puntuacion, p.nivel_alcanzado, p.dificultad, p.fecha_partida
-         FROM partidas p
-         JOIN jugadores j ON j.id = p.jugador_id
-         ORDER BY p.puntuacion DESC
-         LIMIT ?`
-      )
-      .all(limit);
-  };
-
-  return { create, topScores };
+  create(input: CreateScoreInput): Promise<Partida>;
+  topScores(limit: number): Promise<ScoreboardEntry[]>;
 }
 
 export function getScoreRepository(): ScoreRepository {
-  return createScoreRepository(getDb());
+  const db = getDb();
+
+  const create = async (input: CreateScoreInput): Promise<Partida> => {
+    const rows = await db<Partida[]>`INSERT INTO partidas
+      (jugador_id, puntuacion, nivel_alcanzado, duracion_segundos, dificultad, finalizada)
+      VALUES (${input.jugadorId}, ${input.puntuacion}, ${input.nivelAlcanzado},
+        ${input.duracionSegundos}, ${input.dificultad}, ${input.finalizada}) RETURNING *`;
+    return rows[0];
+  };
+
+  const topScores = async (limit: number): Promise<ScoreboardEntry[]> => {
+    return db<ScoreboardEntry[]>`SELECT p.id, j.nombre_usuario, p.puntuacion,
+      p.nivel_alcanzado, p.dificultad, p.fecha_partida
+      FROM partidas p JOIN jugadores j ON j.id = p.jugador_id
+      ORDER BY p.puntuacion DESC LIMIT ${limit}`;
+  };
+
+  return { create, topScores };
 }

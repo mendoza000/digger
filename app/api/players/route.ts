@@ -27,10 +27,9 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const repository = getPlayersRepository();
-
   try {
-    const { player, isNew } = repository.findOrCreate(username);
+    const repository = getPlayersRepository();
+    const { player, isNew } = await repository.findOrCreate(username);
     return NextResponse.json({
       id: player.id,
       username: player.nombre_usuario,
@@ -39,7 +38,7 @@ export async function POST(request: NextRequest) {
   } catch {
     // Dos requests simultáneos para el mismo username nuevo pueden chocar
     // contra el UNIQUE; en ese caso el registro ya existe, lo devolvemos.
-    const existing = repository.findByUsername(username);
+    const existing = await getPlayersRepository().findByUsername(username);
     if (existing) {
       return NextResponse.json({
         id: existing.id,
