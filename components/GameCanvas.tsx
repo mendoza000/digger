@@ -1,10 +1,14 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from "@/game/constants";
 import { createGameEngine, type GameEngine, type GameOverResult, type HudState } from "@/game/engine";
 import type { Difficulty } from "@/game/difficultyStrategy";
 import type { Direction } from "@/game/player";
+import { activeDirection, clearInput, createInputState, releaseOwner, setDirection } from "@/lib/game-input";
+import { vibrateForTouch } from "@/lib/haptics";
+import type { SkinConfig } from "@/lib/delta-skins";
+import DeltaSkinRenderer from "@/components/retro-console/DeltaSkinRenderer";
 import {
   playEnemyDown,
   playGameOver,
@@ -28,14 +32,18 @@ const KEY_DIRECTION: Record<string, Direction> = {
 };
 
 const SHOOT_KEYS = new Set([" ", "spacebar"]);
+interface PressButtonProps {
+  label: string; className: string; pressed: boolean;
+  direction?: Direction;
+  onPointerDown: (event: React.PointerEvent<HTMLButtonElement>) => void;
+  onPointerMove?: (event: React.PointerEvent<HTMLButtonElement>) => void;
+  onPointerFinish: (event: React.PointerEvent<HTMLButtonElement>) => void;
+}
 
-const DIRECTION_PRIORITY: Direction[] = ["up", "down", "left", "right"];
-
-function getActiveDirection(heldKeys: Set<Direction>): Direction | null {
-  for (const direction of DIRECTION_PRIORITY) {
-    if (heldKeys.has(direction)) return direction;
-  }
-  return null;
+function PressButton({ label, className, pressed, direction, onPointerDown, onPointerMove, onPointerFinish }: PressButtonProps) {
+  return <button type="button" aria-label={label} aria-pressed={pressed} data-pressed={pressed ? "true" : undefined}
+    data-direction={direction} className={className} onPointerDown={onPointerDown} onPointerMove={onPointerMove}
+    onPointerUp={onPointerFinish} onPointerCancel={onPointerFinish} onLostPointerCapture={onPointerFinish}>{label}</button>;
 }
 
 interface GameCanvasProps {
@@ -46,6 +54,10 @@ interface GameCanvasProps {
   onCollision?: (cause: "enemy" | "goldBag") => void;
   onLevelComplete?: (level: number) => void;
   onEscape?: () => void;
+  skinConfig?: SkinConfig;
+  skinArtwork?: string;
+  skinName?: string;
+  hapticsEnabled?: boolean;
 }
 
 // El estado del juego vive en el engine (game/engine.ts) y en refs, nunca
@@ -64,6 +76,10 @@ export default function GameCanvas({
   onCollision,
   onLevelComplete,
   onEscape,
+  skinConfig,
+  skinArtwork,
+  skinName = "Candybar",
+  hapticsEnabled = false,
 }: GameCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<GameEngine | null>(null);
@@ -71,8 +87,29 @@ export default function GameCanvas({
     engineRef.current = createGameEngine(difficulty);
   }
 
-  const heldKeysRef = useRef<Set<Direction>>(new Set());
+  const inputRef = useRef(createInputState());
+  const activePointersRef = useRef(new Map<number, HTMLButtonElement>());
+  const [pressedPointers, setPressedPointers] = useState<Map<number, { direction?: Direction; action?: string }>>(new Map());
   const shootRequestedRef = useRef(false);
+
+  const finishPointer = useCallback((pointerId: number, releaseCapture = true) => {
+    const target = activePointersRef.current.get(pointerId);
+    if (!target) return;
+    activePointersRef.current.delete(pointerId);
+    releaseOwner(inputRef.current, pointerId);
+    setPressedPointers((current) => { const next = new Map(current); next.delete(pointerId); return next; });
+    if (releaseCapture) {
+      try {
+        if (target.hasPointerCapture(pointerId)) target.releasePointerCapture(pointerId);
+      } catch { /* capture may already have been lost */ }
+    }
+  }, []);
+  const clearActiveInput = useCallback(() => {
+    for (const pointerId of [...activePointersRef.current.keys()]) finishPointer(pointerId);
+    clearInput(inputRef.current);
+    setPressedPointers(new Map());
+    shootRequestedRef.current = false;
+  }, [finishPointer]);
 
   // El loop de rAF (efecto A, deps []) no puede leer props directamente en
   // cada frame — se reflejan en refs, actualizadas vía efecto en cada
@@ -107,7 +144,7 @@ export default function GameCanvas({
 
       const direction = KEY_DIRECTION[key];
       if (direction) {
-        heldKeysRef.current.add(direction);
+        if (!event.repeat) setDirection(inputRef.current, `key:${key}`, direction);
         event.preventDefault();
       } else if (SHOOT_KEYS.has(key)) {
         shootRequestedRef.current = true;
@@ -116,10 +153,13 @@ export default function GameCanvas({
     };
     const handleKeyUp = (event: KeyboardEvent) => {
       const direction = KEY_DIRECTION[event.key.toLowerCase()];
-      if (direction) heldKeysRef.current.delete(direction);
+      if (direction) releaseOwner(inputRef.current, `key:${event.key.toLowerCase()}`);
     };
+    const clearHeldInput = clearActiveInput;
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
+    window.addEventListener("blur", clearHeldInput);
+    document.addEventListener("visibilitychange", clearHeldInput);
 
     let rafId = 0;
     let lastTime = 0;
@@ -130,7 +170,7 @@ export default function GameCanvas({
       lastTime = time;
 
       if (!pausedRef.current) {
-        const direction = getActiveDirection(heldKeysRef.current);
+        const direction = activeDirection(inputRef.current);
         const shoot = shootRequestedRef.current;
         shootRequestedRef.current = false;
 
@@ -149,8 +189,11 @@ export default function GameCanvas({
       cancelAnimationFrame(rafId);
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
+      window.removeEventListener("blur", clearHeldInput);
+      document.removeEventListener("visibilitychange", clearHeldInput);
+      clearHeldInput();
     };
-  }, []);
+  }, [clearActiveInput]);
 
   // Efecto B: se suscribe al Observer del engine. Re-suscribirse cuando
   // cambia la identidad de los callbacks es barato y no toca el loop.
@@ -226,49 +269,45 @@ export default function GameCanvas({
   // limpian teclas/disparo pendientes para que no se disparen solos apenas
   // se reanuda.
   useEffect(() => {
-    if (paused) {
-      heldKeysRef.current.clear();
-      shootRequestedRef.current = false;
+    const cleanupTimer = paused ? window.setTimeout(clearActiveInput, 0) : undefined;
+    if (paused) stopMusic();
+    else startMusic();
+
+    return () => {
+      if (cleanupTimer !== undefined) window.clearTimeout(cleanupTimer);
       stopMusic();
-    } else {
-      startMusic();
-    }
+    };
+  }, [paused, clearActiveInput]);
 
-    return () => stopMusic();
-  }, [paused]);
-
-  const setTouchDirection = (direction: Direction, pressed: boolean) => {
-    if (pressed) heldKeysRef.current.add(direction);
-    else heldKeysRef.current.delete(direction);
+  const handlePointerFinish = (event: React.PointerEvent<HTMLButtonElement>) => {
+    finishPointer(event.pointerId, event.type !== "lostpointercapture");
   };
-
+  const startPointer = (event: React.PointerEvent<HTMLButtonElement>, direction?: Direction, action?: string) => {
+    event.preventDefault();
+    if (activePointersRef.current.has(event.pointerId)) finishPointer(event.pointerId);
+    try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* synthetic pointer events cannot acquire capture */ }
+    activePointersRef.current.set(event.pointerId, event.currentTarget);
+    setPressedPointers((current) => new Map(current).set(event.pointerId, { direction, action }));
+    if (direction) setDirection(inputRef.current, event.pointerId, direction);
+    else shootRequestedRef.current = true;
+    if (hapticsEnabled && event.pointerType === "touch" && typeof navigator !== "undefined") {
+      vibrateForTouch({ enabled: true }, { vibrate: (duration) => navigator.vibrate(duration) });
+    }
+  };
+  const movePointer = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (!activePointersRef.current.has(event.pointerId)) return;
+    const target = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLButtonElement>("[data-direction]");
+    const value = target?.dataset.direction as Direction | undefined;
+    setDirection(inputRef.current, event.pointerId, value ?? null);
+    setPressedPointers((current) => new Map(current).set(event.pointerId, { direction: value }));
+  };
   const touchButton = (label: string, direction: Direction) => (
-    <button
-      key={direction}
-      type="button"
-      aria-label={label}
-      className="game-touch-button"
-      onPointerDown={(event) => {
-        event.preventDefault();
-        event.currentTarget.setPointerCapture(event.pointerId);
-        setTouchDirection(direction, true);
-      }}
-      onPointerUp={() => setTouchDirection(direction, false)}
-      onPointerCancel={() => setTouchDirection(direction, false)}
-      onLostPointerCapture={() => setTouchDirection(direction, false)}
-    >
-      {label}
-    </button>
+    <PressButton key={direction} label={label} direction={direction} className="game-touch-button"
+      pressed={!paused && [...pressedPointers.values()].some((pressed) => pressed.direction === direction)}
+      onPointerDown={(event) => startPointer(event, direction)} onPointerMove={movePointer} onPointerFinish={handlePointerFinish} />
   );
 
-  return (
-    <div className="game-console">
-      <canvas
-        ref={canvasRef}
-        width={CANVAS_WIDTH}
-        height={CANVAS_HEIGHT}
-        className="game-screen"
-      />
+  const controls = (
       <div className="game-controls" aria-label="Touch game controls">
         <div className="game-dpad">
           {touchButton("Up", "up")}
@@ -276,29 +315,13 @@ export default function GameCanvas({
           {touchButton("Down", "down")}
           {touchButton("Right", "right")}
         </div>
-        <button
-          type="button"
-          aria-label="Shoot with A"
-          className="game-touch-button game-shoot game-button-a"
-          onPointerDown={(event) => {
-            event.preventDefault();
-            shootRequestedRef.current = true;
-          }}
-        >
-          A
-        </button>
-        <button
-          type="button"
-          aria-label="Shoot with B"
-          className="game-touch-button game-shoot game-button-b"
-          onPointerDown={(event) => {
-            event.preventDefault();
-            shootRequestedRef.current = true;
-          }}
-        >
-          B
-        </button>
+        <PressButton label="Shoot with A" className="game-touch-button game-shoot game-button-a" pressed={!paused && [...pressedPointers.values()].some((pressed) => pressed.action === "A")} onPointerDown={(event) => startPointer(event, undefined, "A")} onPointerFinish={handlePointerFinish} />
+        <PressButton label="Shoot with B" className="game-touch-button game-shoot game-button-b" pressed={!paused && [...pressedPointers.values()].some((pressed) => pressed.action === "B")} onPointerDown={(event) => startPointer(event, undefined, "B")} onPointerFinish={handlePointerFinish} />
       </div>
-    </div>
   );
+
+  const canvas = <canvas ref={canvasRef} width={CANVAS_WIDTH} height={CANVAS_HEIGHT} className="game-screen" />;
+  return skinConfig && skinArtwork ? (
+    <DeltaSkinRenderer config={skinConfig} artwork={skinArtwork} label={skinName} controls={controls}>{canvas}</DeltaSkinRenderer>
+  ) : <div className="game-console">{canvas}{controls}</div>;
 }

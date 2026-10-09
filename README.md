@@ -1,6 +1,6 @@
 # Digger
 
-Digger is a Next.js game application. Install dependencies with `npm ci`, then use `npm run dev` for local development.
+Digger is a Next.js game application. Install dependencies with `npm ci`, then use `npm run dev` for local development. See [Delta skin support](DELTA_SKIN_SUPPORT.md) for the supported `.deltaskin` subset and mobile-control limitations.
 
 ## Managed PostgreSQL setup
 

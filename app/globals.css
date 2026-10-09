@@ -1,169 +1,61 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
+:root { --background: #ffffff; --foreground: #171717; }
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: var(--background); --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans); --font-mono: var(--font-geist-mono);
+}
+@media (prefers-color-scheme: dark) { :root { --background: #0a0a0a; --foreground: #ededed; } }
+body { background: var(--background); color: var(--foreground); font-family: Arial, Helvetica, sans-serif; }
+.game-console { display:flex; flex-direction:column; align-items:center; gap:1.5rem; }
+.game-screen { display:block; width:1024px; height:896px; image-rendering:pixelated; }
+.game-controls { display:none; }
+/* Keep desktop rendering independent from skin metadata. */
+.delta-skin-renderer { display:flex; flex-direction:column; align-items:center; gap:1.5rem; aspect-ratio:auto !important; background-image:none !important; }
+.delta-skin-screen-frame, .delta-skin-control-layer { display:contents; }
+.skin-picker { width:min(100%,32rem); font-size:.8rem; color:#a1a1aa; }
+.skin-picker label { display:flex; flex-direction:column; gap:.4rem; }
+.skin-picker input { max-width:100%; }
+.game-hud { width:1024px; }
+
+@media (max-width:700px), (orientation:landscape) and (max-height:600px) {
+  .play-page.touch-skin-enabled.is-playing { position:fixed; inset:0; z-index:10; display:block; width:100%; height:100vh; height:100dvh; overflow:hidden; padding:0; background:#080808; }
+  .play-page.touch-skin-enabled.is-playing > p { display:none; }
+  .play-page.touch-skin-enabled.is-playing .game-stage { position:absolute; inset:0; width:100%; height:100%; }
+  .play-page.touch-skin-enabled .delta-skin-renderer { aspect-ratio:var(--skin-width) / var(--skin-height) !important; background-image:var(--skin-artwork) !important; }
+  .play-page.touch-skin-enabled .game-console { position:absolute; left:50%; top:50%; width:min(100vw,var(--skin-fit-width)); height:auto; max-height:100dvh; margin:0; transform:translate(-50%,-50%); background-position:center; background-size:100% 100%; background-repeat:no-repeat; }
+  .play-page.touch-skin-enabled .delta-skin-screen-frame { display:block; position:absolute; overflow:hidden; background:#090909; }
+  .play-page.touch-skin-enabled .delta-skin-control-layer { position:absolute; inset:0; pointer-events:none; }
+  .play-page.touch-skin-enabled .game-screen {
+    position: absolute; inset: 0; display: block; width: 100%; height: 100%; border: 0; border-radius: 0;
+    object-fit: contain; object-position: center; background: #000; image-rendering: pixelated;
+  }
+  .play-page.touch-skin-enabled .game-hud { position:absolute; z-index:2; left:14.5%; top:16.2%; width:71%; box-sizing:border-box; padding:.1rem .25rem; border:0; background:#0009; font-size:clamp(.48rem,2.2vw,.75rem); }
+  .play-page.touch-skin-enabled .game-controls { position:absolute; inset:0; display:block; pointer-events:none; touch-action:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
+  .play-page.touch-skin-enabled .game-dpad { position:absolute; inset:0; }
+  .play-page.touch-skin-enabled .game-touch-button { position:absolute; padding:0; border:0; border-radius:50%; background:transparent; color:transparent; touch-action:none; -webkit-user-select:none; user-select:none; pointer-events:auto; }
+  .play-page.touch-skin-enabled .game-touch-button[aria-pressed="true"] { background:rgb(251 191 36 / 22%); box-shadow:inset 0 0 0 2px rgb(251 191 36 / 80%),0 0 0 2px rgb(24 24 27 / 70%); }
+  .play-page.touch-skin-enabled .game-dpad .game-touch-button:nth-child(1) { left:18.5%; top:62.4%; width:12%; height:5%; }
+  .play-page.touch-skin-enabled .game-dpad .game-touch-button:nth-child(2) { left:6.8%; top:67%; width:12%; height:5%; }
+  .play-page.touch-skin-enabled .game-dpad .game-touch-button:nth-child(3) { left:18.5%; top:72.2%; width:12%; height:5%; }
+  .play-page.touch-skin-enabled .game-dpad .game-touch-button:nth-child(4) { left:30.3%; top:67%; width:12%; height:5%; }
+  .play-page.touch-skin-enabled .game-button-a { left:80.5%; top:67%; width:12%; height:6%; }
+  .play-page.touch-skin-enabled .game-button-b { left:69%; top:72.4%; width:12%; height:6%; }
+  .play-page.touch-skin-enabled.is-playing { left:env(safe-area-inset-left); right:env(safe-area-inset-right); width:auto; height:calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom)); top:env(safe-area-inset-top); }
+  .play-page.touch-skin-enabled.is-playing .game-stage { height:100%; }
+  .play-page.touch-skin-enabled .game-console { max-height:100%; }
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+@media (max-width:700px) and (orientation:portrait) {
+  .play-page.touch-skin-enabled .game-console { width:min(100vw,var(--skin-fit-width)); }
 }
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-}
-
-.game-console {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1.5rem;
-}
-
-.game-screen {
-  display: block;
-  width: 1024px;
-  height: 896px;
-  image-rendering: pixelated;
-}
-
-.game-controls {
-  display: none;
-}
-
-.game-hud { width: 1024px; }
-
-@media (max-width: 700px), (orientation: landscape) and (max-height: 600px) {
-  body {
-    overflow-x: hidden;
-  }
-
-  .play-page.is-playing {
-    position: fixed;
-    inset: 0;
-    z-index: 10;
-    display: block;
-    width: 100%;
-    height: 100vh;
-    height: 100dvh;
-    overflow: hidden;
-    padding: 0;
-    background: #080808;
-  }
-
-  .play-page.is-playing > p { display: none; }
-
-  .play-page.is-playing .game-stage {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-  }
-
-  .game-console {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    background-position: center;
-    background-size: 100% 100%;
-    background-repeat: no-repeat;
-  }
-
-  .game-screen {
-    position: absolute;
-    left: 13.636%;
-    top: 15.83%;
-    width: 72.728%;
-    height: 30.126%;
-    border: 0;
-    border-radius: 0;
-    background: #090909;
-    object-fit: contain;
-  }
-
-  .game-hud {
-    position: absolute;
-    z-index: 2;
-    left: 14.5%;
-    top: 16.2%;
-    width: 71%;
-    box-sizing: border-box;
-    padding: 0.1rem 0.25rem;
-    border: 0;
-    background: #0009;
-    font-size: clamp(0.48rem, 2.2vw, 0.75rem);
-  }
-
-  .game-controls {
-    position: absolute;
-    inset: 0;
-    display: block;
-    pointer-events: none;
-    touch-action: none;
-    user-select: none;
-  }
-
-  .game-dpad { position: absolute; inset: 0; }
-
-  .game-touch-button {
-    position: absolute;
-    padding: 0;
-    border: 0;
-    border-radius: 50%;
-    background: transparent;
-    color: transparent;
-    touch-action: none;
-    -webkit-user-select: none;
-    user-select: none;
-    pointer-events: auto;
-  }
-
-  .game-dpad .game-touch-button:nth-child(1) { left: 18.5%; top: 62.4%; width: 12%; height: 5%; }
-  .game-dpad .game-touch-button:nth-child(2) { left: 6.8%; top: 67%; width: 12%; height: 5%; }
-  .game-dpad .game-touch-button:nth-child(3) { left: 18.5%; top: 72.2%; width: 12%; height: 5%; }
-  .game-dpad .game-touch-button:nth-child(4) { left: 30.3%; top: 67%; width: 12%; height: 5%; }
-  .game-button-a { left: 80.5%; top: 67%; width: 12%; height: 6%; }
-  .game-button-b { left: 69%; top: 72.4%; width: 12%; height: 6%; }
-}
-
-@media (max-width: 700px) and (orientation: portrait) {
-  .game-console {
-    background-image: url("/skins/candybar/iphone_edgetoedge_portrait.png");
-  }
-}
-
-@media (orientation: landscape) and (max-height: 600px) {
-  .game-console {
-    background-image: url("/skins/candybar/iphone_edgetoedge_landscape.png");
-  }
-  .game-screen {
-    left: 30.48%;
-    top: 10.91%;
-    width: 39.05%;
-    height: 76.36%;
-  }
-  .game-hud {
-    left: 31%;
-    top: 12%;
-    width: 38%;
-  }
-  .game-dpad .game-touch-button:nth-child(1) { left: 11.3%; top: 28%; width: 5.5%; height: 12%; }
-  .game-dpad .game-touch-button:nth-child(2) { left: 6.7%; top: 38.5%; width: 5%; height: 12%; }
-  .game-dpad .game-touch-button:nth-child(3) { left: 11.3%; top: 50%; width: 5.5%; height: 12%; }
-  .game-dpad .game-touch-button:nth-child(4) { left: 16.5%; top: 38.5%; width: 5.5%; height: 12%; }
-  .game-button-a { left: 87%; top: 37%; width: 8%; height: 15%; }
-  .game-button-b { left: 81.5%; top: 49%; width: 8%; height: 15%; }
+@media (orientation:landscape) and (max-height:600px) {
+  .play-page.touch-skin-enabled .game-console { width:min(100vw,var(--skin-fit-width)); }
+  .play-page.touch-skin-enabled .game-hud { left:31%; top:12%; width:38%; }
+  .play-page.touch-skin-enabled .game-dpad .game-touch-button:nth-child(1) { left:11.3%; top:28%; width:5.5%; height:12%; }
+  .play-page.touch-skin-enabled .game-dpad .game-touch-button:nth-child(2) { left:6.7%; top:38.5%; width:5%; height:12%; }
+  .play-page.touch-skin-enabled .game-dpad .game-touch-button:nth-child(3) { left:11.3%; top:50%; width:5.5%; height:12%; }
+  .play-page.touch-skin-enabled .game-dpad .game-touch-button:nth-child(4) { left:16.5%; top:38.5%; width:5.5%; height:12%; }
+  .play-page.touch-skin-enabled .game-button-a { left:87%; top:37%; width:8%; height:15%; }
+  .play-page.touch-skin-enabled .game-button-b { left:81.5%; top:49%; width:8%; height:15%; }
 }
