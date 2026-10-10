@@ -17,15 +17,24 @@ async function enterGame(page: import("@playwright/test").Page) {
   await page.locator(".game-screen").waitFor();
 }
 
-test("mobile console suppresses selection and touch callout", async ({ page, isMobile }) => {
+test("mobile console suppresses selection and supported touch callout", async ({ page, isMobile }) => {
   test.skip(!isMobile, "mobile emulation only");
   await page.addInitScript(() => sessionStorage.setItem("digger.player", JSON.stringify({ id: 1, username: "tester" })));
   await page.route("**/api/config/**", (route) => route.fulfill({ json: {} }));
   await page.goto("/play");
   await page.getByRole("button", { name: "Jugar" }).click();
+  const console = page.locator(".game-console");
+  const screen = page.locator(".game-screen");
   const controls = page.locator(".game-controls");
+  const touchButton = page.getByRole("button", { name: "Up" });
   await expect(controls).toBeVisible();
+  await expect(console).toHaveCSS("-webkit-user-select", "none");
+  await expect(screen).toHaveCSS("-webkit-user-select", "none");
   await expect(controls).toHaveCSS("-webkit-user-select", "none");
+  await expect(touchButton).toHaveCSS("-webkit-user-select", "none");
+  if (await page.evaluate(() => CSS.supports("-webkit-touch-callout", "none"))) {
+    await expect(touchButton).toHaveCSS("-webkit-touch-callout", "none");
+  }
 });
 
 test("controls remain aligned and expose usable hit targets in portrait and landscape", async ({ page, isMobile }) => {
