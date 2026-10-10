@@ -52,8 +52,18 @@ test('missing imported landscape uses bundled landscape and reports fallback', (
   expect(selected.fallbackMessage).toBe('Landscape unavailable; using Candybar landscape layout.');
 });
 
-test('mobile game screen preserves aspect ratio and centers on a black background', () => {
+test('desktop HUD centers within the full-width game stage', () => {
   const css = readFileSync('app/globals.css', 'utf8');
+  const hudRule = css.match(/\.game-hud\s*\{([^}]+)\}/)?.[1] ?? '';
+  expect(hudRule.replace(/\\s/g, '')).toMatch(/margin-inline:auto|margin:\\s*[^;]*auto/);
+});
+
+test('mobile console fills viewport by cropping only the proportionally scaled outer skin', () => {
+  const css = readFileSync('app/globals.css', 'utf8');
+  const consoleRule = css.match(/\.play-page\.touch-skin-enabled \.game-console\s*\{([^}]+)\}/)?.[1] ?? '';
+  expect(consoleRule).toContain('width:max(100vw,var(--skin-fit-width))');
+  expect(consoleRule).toContain('aspect-ratio:var(--skin-width) / var(--skin-height)');
+  expect(consoleRule).not.toContain('max-height:100dvh');
   const mobileRule = css.match(/\.game-screen\s*\{([^}]+)\}/g)?.at(-1);
   expect(mobileRule).toContain('object-fit: contain');
   expect(mobileRule).toContain('object-position: center');

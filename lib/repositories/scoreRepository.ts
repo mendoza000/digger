@@ -34,8 +34,9 @@ export interface ScoreRepository {
   topScores(limit: number): Promise<ScoreboardEntry[]>;
 }
 
-export function getScoreRepository(): ScoreRepository {
-  const db = getDb();
+export function createScoreRepository(
+  db: ReturnType<typeof getDb>,
+): ScoreRepository {
 
   const create = async (input: CreateScoreInput): Promise<Partida> => {
     const rows = await db<Partida[]>`INSERT INTO partidas
@@ -46,11 +47,27 @@ export function getScoreRepository(): ScoreRepository {
   };
 
   const topScores = async (limit: number): Promise<ScoreboardEntry[]> => {
-    return db<ScoreboardEntry[]>`SELECT p.id, j.nombre_usuario, p.puntuacion,
-      p.nivel_alcanzado, p.dificultad, p.fecha_partida
-      FROM partidas p JOIN jugadores j ON j.id = p.jugador_id
-      ORDER BY p.puntuacion DESC LIMIT ${limit}`;
+    return db<ScoreboardEntry[]>`WITH ranked_scores AS (
+      SELECT p.id, p.jugador_id, p.puntuacion, p.nivel_alcanzado,
+        p.dificultad, p.fecha_partida,
+        ROW_NUMBER() OVER (
+          PARTITION BY p.jugador_id
+          ORDER BY p.puntuacion DESC, p.fecha_partida DESC, p.id DESC
+        ) AS score_rank
+      FROM partidas p
+    )
+    SELECT best.id, j.nombre_usuario, best.puntuacion,
+      best.nivel_alcanzado, best.dificultad, best.fecha_partida
+    FROM ranked_scores best
+    JOIN jugadores j ON j.id = best.jugador_id
+    WHERE best.score_rank = 1
+    ORDER BY best.puntuacion DESC, best.fecha_partida DESC, best.id DESC
+    LIMIT ${limit}`;
   };
 
   return { create, topScores };
+}
+
+export function getScoreRepository(): ScoreRepository {
+  return createScoreRepository(getDb());
 }

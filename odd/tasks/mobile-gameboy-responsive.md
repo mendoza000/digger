@@ -56,6 +56,39 @@ The game canvas currently renders at a fixed 1024×896 CSS size, so it does not 
 - Verification limitation: no browser/device touch test was available, so physical tap responsiveness and exact visual alignment remain unverified; the structural mapping is corrected and verified against both skin images/metadata.
 - Feature work-unit commit: `4baa8ca` (`feat(mobile): add full-screen Game Boy skin and touch controls`); task evidence was recorded in `b0e904d`. The user authorized publishing both `master` and `game-offline`; both remote refs were verified at `b0e904d` before this final task-document update.
 
-## Next step
+## Prior completion next step
 
-Test the movement buttons on the phone. If they still misfire, share which direction and a screenshot/video of the touch location so the hit areas can be calibrated further. The feature is committed and published on both branches; `bun.lock` remains untracked and untouched.
+The earlier mobile implementation's next step was physical-device touch testing. The latest user screenshots now reopen viewport presentation work; the previous mobile/touch feature history above remains unchanged.
+
+## Current follow-up: edge-to-edge mobile and responsive desktop presentation
+
+### Accepted behavior and constraints
+
+- The user confirmed mobile should fill the available viewport by cropping only the outer Candybar skin when viewport and skin aspect ratios differ; preserve the skin's aspect ratio and keep the game canvas and touch mappings unchanged.
+- The desktop screenshot shows the HUD detached at the left edge from the centered playfield. Center/align the HUD with the desktop playfield and scale the complete game canvas as large as available while preserving its 8:7 aspect ratio. The user chose to keep the full playfield visible and accept black side margins rather than crop gameplay.
+- Preserve keyboard controls, touch behavior, game rules, pixel rendering, safe-area behavior, and the existing untracked `bun.lock` and `test-results/` artifacts.
+- Do not commit, push, or create a PR without explicit authorization for this follow-up.
+
+### Tasks
+
+- [x] **MGB-3 — Fill mobile viewport by cropping outer skin** (complete; physical-device check pending)
+  - Size the touch-enabled skin to cover the available viewport with its original aspect ratio; clipping may occur only at the outer artwork edges.
+  - Keep the canvas's aspect behavior, mapped screen frame, controls, and input logic unchanged.
+  - Route: delegated direct writer; multi-file CSS/test change.
+  - Allowed surfaces: `app/globals.css`, `tests/unit/delta-skins-renderer.test.ts`, `tests/e2e/retro-console.spec.ts`.
+  - RED/GREEN: the focused Playwright unit assertion was observed failing before the CSS change and passed afterward (6 tests then; 7 after adding desktop HUD coverage); PostCSS parsing passed.
+  - Mobile Chromium emulation against the existing server passed 9 tests with 3 desktop-only skips. Added portrait (390×700) and landscape (844×390) assertions proving the renderer covers the stage in both dimensions while preserving the orientation-specific skin ratio. Existing control bounds and canvas continuity checks passed. Physical iPhone Safari remains unverified.
+  - Acceptance: mobile viewport is covered by the proportionally scaled skin without empty outer bars; only the skin edges crop, and gameplay/canvas/control mapping is unchanged.
+- [x] **MGB-4 — Align and maximize desktop playfield** (complete)
+  - Make the desktop game stage responsive to available viewport bounds, keep the entire 8:7 game canvas visible without cropping, and allow letterbox/side margins as needed.
+  - Anchor the HUD to the same centered stage as the canvas so it no longer begins at the page's left edge.
+  - Preserve keyboard behavior and compact non-touch desktop support.
+  - Route: delegated direct writer; CSS plus E2E and unit regressions.
+  - Allowed surfaces: `app/globals.css`, `tests/e2e/retro-console.spec.ts`, `tests/unit/delta-skins-renderer.test.ts`.
+  - TDD: the structural HUD-centering unit assertion failed before adding `margin-inline:auto`; then the unit suite passed (7 tests).
+  - Verification: desktop E2E against the existing server passed 2 tests with 4 mobile-only skips at compact 640×900 and wide 1920×1400; `/usr/bin/chromium` was used without installation. The independent verifier confirmed HUD and canvas centers match within 1 CSS px and the 8:7 canvas remains inside the viewport. PostCSS parsing and `git diff --check` passed.
+  - Acceptance: HUD and canvas bounds align and are centered; the canvas stays within the viewport, retains 8:7 ratio with no gameplay crop, and scales up from the current fixed 1024×896 CSS size when room permits.
+
+## Current progress and next step
+
+MGB-3 and MGB-4 are complete with independent verification. Mobile Chromium emulation now confirms skin-stage coverage and aspect ratio in portrait and landscape; desktop Chromium confirms HUD/canvas centering and responsive 8:7 sizing at compact and wide viewports. Physical iPhone Safari confirmation remains an optional manual follow-up. Work stayed on `fix/leaderboard-best-score-per-player`; leaderboard changes, `bun.lock`, and `test-results/` were preserved, with no staging or commit. No implementation task remains open.

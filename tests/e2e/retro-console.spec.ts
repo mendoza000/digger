@@ -19,6 +19,7 @@ test('mobile renderer uses orientation metadata without replacing the game canva
   test.skip(!isMobile, 'mobile emulation only');
   await page.addInitScript(() => sessionStorage.setItem('digger.player', JSON.stringify({ id: 1, username: 'tester' })));
   await page.route('**/api/config/**', route => route.fulfill({ json: { dificultad_preferida: 'medio', sonido_activo: false } }));
+  await page.setViewportSize({ width: 390, height: 700 });
   await page.goto('/play');
   await expect(page.getByRole('status')).toContainText('Candybar');
   await expect(page.getByRole('status')).toContainText('toggleFastForward, fastForward, quickSave, quickLoad');
@@ -37,7 +38,19 @@ test('mobile renderer uses orientation metadata without replacing the game canva
       expect(bounds?.height).toBeGreaterThan(0);
     }
   };
+  const assertArtworkCoversStage = async (skinWidth: number, skinHeight: number) => {
+    const artwork = await renderer.boundingBox();
+    const stage = await page.locator('.game-stage').boundingBox();
+    expect(artwork).not.toBeNull();
+    expect(stage).not.toBeNull();
+    expect(artwork!.width / artwork!.height).toBeCloseTo(skinWidth / skinHeight, 3);
+    expect(artwork!.x).toBeLessThanOrEqual(stage!.x + 1);
+    expect(artwork!.y).toBeLessThanOrEqual(stage!.y + 1);
+    expect(artwork!.x + artwork!.width).toBeGreaterThanOrEqual(stage!.x + stage!.width - 1);
+    expect(artwork!.y + artwork!.height).toBeGreaterThanOrEqual(stage!.y + stage!.height - 1);
+  };
   await assertNonzeroBounds();
+  await assertArtworkCoversStage(1320, 2868);
   const continuityToken = `canvas-${Date.now()}`;
   await canvas.evaluate((node, token) => { node.dataset.continuity = token; }, continuityToken);
   const dimensions = await canvas.evaluate(node => ({ width: (node as HTMLCanvasElement).width, height: (node as HTMLCanvasElement).height }));
@@ -49,6 +62,7 @@ test('mobile renderer uses orientation metadata without replacing the game canva
   await page.setViewportSize({ width: 844, height: 390 });
   await expect(page.getByTestId('delta-skin-renderer')).toHaveAttribute('data-mapping-width', '2868');
   await assertNonzeroBounds();
+  await assertArtworkCoversStage(2868, 1320);
   await expect(canvas).toHaveAttribute('data-continuity', continuityToken);
   expect(await canvas.evaluate(node => ({ width: (node as HTMLCanvasElement).width, height: (node as HTMLCanvasElement).height }))).toEqual(dimensions);
 });
@@ -89,17 +103,31 @@ test('compact desktop without touch keeps the unskinned canvas presentation', as
   await expect(page.locator('.play-page')).not.toHaveClass(/touch-skin-enabled/);
   await expect(page.locator('.game-controls')).toBeHidden();
   await expect(page.getByTestId('delta-skin-renderer')).toHaveCSS('background-image', 'none');
-  await expect(page.locator('.game-screen')).toHaveCSS('width', '1024px');
-  await expect(page.locator('.game-screen')).toHaveCSS('height', '896px');
+  const canvasBox = await page.locator('.game-screen').boundingBox();
+  const hudBox = await page.locator('.game-hud').boundingBox();
+  expect(canvasBox).not.toBeNull();
+  expect(hudBox).not.toBeNull();
+  expect(canvasBox!.width).toBeLessThanOrEqual(640);
+  expect(canvasBox!.height).toBeLessThanOrEqual(900);
+  expect(canvasBox!.width / canvasBox!.height).toBeCloseTo(8 / 7, 2);
+  expect(Math.abs((canvasBox!.x + canvasBox!.width / 2) - (hudBox!.x + hudBox!.width / 2))).toBeLessThanOrEqual(1);
 });
 
 test('desktop keeps the existing unskinned canvas presentation', async ({ page, isMobile }) => {
   test.skip(isMobile, 'desktop presentation regression');
+  await page.setViewportSize({ width: 1920, height: 1400 });
   await start(page);
   await expect(page.getByTestId('delta-skin-renderer')).toHaveCSS('display', 'flex');
   await expect(page.getByTestId('delta-skin-renderer')).toHaveCSS('background-image', 'none');
   await expect(page.locator('.game-screen')).toHaveAttribute('width', '256');
   await expect(page.locator('.game-screen')).toHaveAttribute('height', '224');
-  await expect(page.locator('.game-screen')).toHaveCSS('width', '1024px');
-  await expect(page.locator('.game-screen')).toHaveCSS('height', '896px');
+  const canvasBox = await page.locator('.game-screen').boundingBox();
+  const hudBox = await page.locator('.game-hud').boundingBox();
+  expect(canvasBox).not.toBeNull();
+  expect(hudBox).not.toBeNull();
+  expect(canvasBox!.width).toBeGreaterThan(1024);
+  expect(canvasBox!.width / canvasBox!.height).toBeCloseTo(8 / 7, 2);
+  expect(canvasBox!.x).toBeGreaterThanOrEqual(0);
+  expect(canvasBox!.x + canvasBox!.width).toBeLessThanOrEqual(1920);
+  expect(Math.abs((canvasBox!.x + canvasBox!.width / 2) - (hudBox!.x + hudBox!.width / 2))).toBeLessThanOrEqual(1);
 });
